@@ -5,8 +5,11 @@
 #include <vector>
 #include <iostream>
 #include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #include <ModelTriangle.h>
 #include <unordered_map>
+#include <RayTriangleIntersection.h>
+#include <math.h>
 
 #define WIDTH 320*3
 #define HEIGHT 240*3
@@ -14,12 +17,14 @@
 using namespace std;
 
 vector<glm::vec3> vertices;
+vector<glm::vec3> normals;
 vector<ModelTriangle> faces;
 vector<CanvasTriangle> canvasTriangles;
 unordered_map<string, Colour> colourPalette;
 vector<Colour> triangleColours; 
 float depthBuffer[WIDTH][HEIGHT];
 string renderMode;
+glm::vec3 lightPosition = glm::vec3(0.0, 0.4, 0.0);
 struct camera {
     glm::vec3 position = glm::vec3(0.0,0.0,1.0);
     float focalLength = 1.0;
@@ -205,10 +210,94 @@ void rasterise(DrawingWindow &window){
 
 }
 
+RayTriangleIntersection getClosestIntersection(glm::vec3 rayDirection, glm::vec3 rayStart, int index) {
+	float closestSoFar = FLT_MAX;
+	RayTriangleIntersection intersection;
+	for (size_t i = 0; i < faces.size(); i++) {
+		ModelTriangle triangle = faces[i];
+		glm::vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+		glm::vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+		glm::vec3 SPVector = rayStart - triangle.vertices[0];
+		glm::mat3 DEMatrix(-rayDirection, e0, e1);
+		glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+		float t = possibleSolution[0]; float u = possibleSolution[1]; float v = possibleSolution[2];
+		if ((u >= 0.0) && (u <= 1.0) && (v >= 0.0) && (v <= 1.0) && ((u + v) <= 1.0) && (t > 0 && t < closestSoFar) && i != index) {
+			closestSoFar = t;
+			intersection.intersectionPoint = rayStart + (rayDirection * t);
+			intersection.distanceFromCamera = t;
+			intersection.intersectedTriangle = triangle;
+			intersection.triangleIndex = i;
+		}
+	}
+	return intersection;
+}
+
+bool rayCanReachLight(glm::vec3 point, int index) {
+	glm::vec3 rayDirection = lightPosition - point;
+	RayTriangleIntersection intersection = getClosestIntersection(rayDirection, point, index);
+	if (intersection.triangleIndex != -1) {
+		float distanceToIntersection = glm::l2Norm(intersection.intersectionPoint, point);
+		float distanceToLight = glm::l2Norm(lightPosition, point);
+		if (distanceToIntersection > distanceToLight) return true;
+		else return false;
+	}
+	return true;
+}
+
+void raytrace(DrawingWindow& window) {
+	window.clearPixels();
+	for (int y = 0; y < HEIGHT; y++) {
+		for (int x = 0; x < WIDTH; x++) {
+			float xRayDirection = (x - WIDTH / 2.0) ;
+			float yRayDirection = y - HEIGHT / 2.0;
+			xRayDirection = xRayDirection / 400;
+			yRayDirection = -yRayDirection / 400;
+			glm::vec3 imagePlanePoint(xRayDirection, yRayDirection, camera.position.z - camera.focalLength);
+			glm::vec3 rayDirection = imagePlanePoint - camera.position;
+			RayTriangleIntersection intersection = getClosestIntersection(rayDirection, camera.position, -1);
+			if (intersection.triangleIndex != -1) {
+				Colour colour;
+                glm::vec3 lightRay = glm::vec3(lightPosition - intersection.intersectionPoint);
+				// proximity
+                float proximity = 1 / (2 * M_PI * glm::pow(glm::length(lightRay), 2));
+				if (proximity > 1) proximity = 1;
+                // angle of incidence
+				float angleOfIncidence = glm::dot(glm::normalize(intersection.intersectedTriangle.faceNormal), glm::normalize(lightRay));
+				if (angleOfIncidence < 0) angleOfIncidence = 0;
+				// specular
+				int n = 10;
+				glm::vec3 lightToPoint = glm::normalize(intersection.intersectionPoint - lightPosition);
+				glm::vec3 normalizedNormal = glm::normalize(intersection.intersectedTriangle.faceNormal);
+				glm::vec3 rayReflection = glm::normalize(lightToPoint - normalizedNormal * 2.0f * glm::dot(lightToPoint, normalizedNormal)); 
+				glm::vec3 toCamera = glm::normalize(camera.position - intersection.intersectionPoint);
+				float specularLight = glm::dot(toCamera,rayReflection);
+				if (specularLight < 0) specularLight = 0;
+				specularLight = pow(specularLight, n);
+				
+				float brightness = (proximity + angleOfIncidence + specularLight) / 3;
+				if ((brightness+0.2) < 1) brightness += 0.2;
+				else brightness = 1.0;
+				if (rayCanReachLight(intersection.intersectionPoint,intersection.triangleIndex)) {
+					colour = intersection.intersectedTriangle.colour;
+					uint32_t col = (255 << 24) + (int(colour.red*brightness) << 16) + (int(colour.green*brightness) << 8) + int(colour.blue*brightness);
+					window.setPixelColour(x, y, col);
+				}
+				else {
+					brightness = 0.2;
+					colour = intersection.intersectedTriangle.colour;
+					uint32_t col = (255 << 24) + (int(colour.red*brightness) << 16) + (int(colour.green*brightness) << 8) + int(colour.blue*brightness);
+					window.setPixelColour(x, y, col);
+				}
+			}
+		}
+	}
+}
+
 void draw(DrawingWindow &window) {
     if (renderMode == "pointCloud") pointCloud(window);
     else if (renderMode == "wireFrame") wireFrame(window);
     else if (renderMode == "rasterise") rasterise(window);
+    else if (renderMode == "raytrace") raytrace(window);
 }
 
 void parseOBJ(string filePath) {
@@ -225,8 +314,21 @@ void parseOBJ(string filePath) {
 				vertices.push_back(vertex);
 			} else if (line[0] == 'f') {
 				vector<string> lineParts = split(line, ' ');
+				vector<string> splitLineParts1 = split(lineParts[1], '/');
+				vector<string> splitLineParts2 = split(lineParts[2], '/');
+				vector<string> splitLineParts3 = split(lineParts[3], '/');
 				Colour colour = colourPalette[currentColour];
-				ModelTriangle face = ModelTriangle(vertices[stoi(lineParts[1])-1],vertices[stoi(lineParts[2])-1],vertices[stoi(lineParts[3])-1],colour);
+                glm::vec3 v0 = vertices[stoi(splitLineParts1[0])-1];
+                glm::vec3 v1 = vertices[stoi(splitLineParts2[0])-1];
+                glm::vec3 v2 = vertices[stoi(splitLineParts3[0])-1];
+				ModelTriangle face = ModelTriangle(v0, v1, v2, colour);
+                face.faceNormal = glm::normalize(glm::cross((v1-v0),(v2-v0)));
+				if (normals.size() != 0) {
+					glm::vec3 n0 = normals[stoi(splitLineParts1[2])-1];
+					glm::vec3 n1 = normals[stoi(splitLineParts2[2])-1];
+					glm::vec3 n2 = normals[stoi(splitLineParts3[2])-1];
+					face.vertexNormals[0] = n0; face.vertexNormals[1] = n1; face.vertexNormals[2] = n2;
+				}
 				faces.push_back(face);
 			} else if (line[0] == 'u') {
 				vector<string> lineParts = split(line, ' ');
@@ -289,6 +391,10 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
         else if (event.key.keysym.sym == SDLK_r) {
             renderMode = "rasterise";
             cout << "Rasterise" << endl; }
+        else if (event.key.keysym.sym == SDLK_t) {
+            renderMode = "raytrace";
+            cout << "Ray Trace" << endl;
+        }
         draw(window);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
