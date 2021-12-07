@@ -10,6 +10,7 @@ struct RayTriangleIntersection {
 	ModelTriangle intersectedTriangle;
 	size_t triangleIndex;
 	float faceNormal;
+	std::array<float, 3> baryCoords;
 
 	RayTriangleIntersection();
 	RayTriangleIntersection(const glm::vec3 &point, float distance, const ModelTriangle &triangle, size_t index);
