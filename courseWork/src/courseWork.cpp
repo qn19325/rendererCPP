@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <ModelTriangle.h>
+#include <TextureMap.h>
 #include <unordered_map>
 #include <RayTriangleIntersection.h>
 #include <math.h>
@@ -23,12 +24,17 @@ vector<ModelTriangle> faces;
 vector<CanvasTriangle> canvasTriangles;
 unordered_map<string, Colour> colourPalette;
 vector<Colour> triangleColours; 
+TextureMap texture;
 float depthBuffer[WIDTH][HEIGHT];
 string renderMode;
 glm::vec3 lightPosition;
 struct camera {
     glm::vec3 position;
     float focalLength;
+	glm::vec3 right = glm::vec3(1,0,0);
+	glm::vec3 up = glm::vec3(0,1,0);
+	glm::vec3 forward = glm::vec3(0,0,1);
+	glm::mat3 rot = glm::mat3(right, up, forward);
 } camera;
 
 void clearDepthBuffer() {
@@ -40,8 +46,9 @@ void clearDepthBuffer() {
 }
 
 glm::vec3 getVertexRelativeToCamera(glm::vec3 vertexPosition) {
-	glm::vec3 relative = vertexPosition - camera.position;
-	return relative;
+	glm::vec3 cameraToVertex = vertexPosition - camera.position;
+    glm::vec3 adjustedVector = cameraToVertex  * camera.rot;
+	return adjustedVector;
 }
 CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPosition, DrawingWindow &window) {
 	glm::vec3 relativePos = getVertexRelativeToCamera(vertexPosition);
@@ -51,6 +58,18 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPosition, DrawingWindow &
 	float u = 400 * (camera.focalLength * (x / depth)) + (window.width / 2);
 	float v = 400 * (camera.focalLength * (y / depth)) + (window.height / 2);
 	u = WIDTH - u;
+	CanvasPoint point(u, v, depth);
+	return point;
+}
+CanvasPoint getCanvasIntersectionPointTex(glm::vec3 vertexPosition, DrawingWindow &window) {
+	glm::vec3 relativePos = getVertexRelativeToCamera(vertexPosition);
+	float x = relativePos.x;
+	float y = relativePos.y;
+	float depth = relativePos.z;
+	float u = 400 * (camera.focalLength * (x / depth)) + (window.width / 2);
+	float v = 400 * (camera.focalLength * (y / depth)) + (window.height / 2);
+	u = WIDTH - u;
+	if(depth != 0.0) depth = abs(1 / depth);
 	CanvasPoint point(u, v, depth);
 	return point;
 }
@@ -70,6 +89,22 @@ vector<float> interpolateSingleFloats(float from, float to, float numberOfValues
 		values.push_back(from + stepSize*i);
 	}
 	return values;
+}
+vector<CanvasPoint> interpolationWithSteps(CanvasPoint to, CanvasPoint from, int steps) {
+	vector<CanvasPoint> line;
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float zDiff = to.depth - from.depth;
+	float xStepSize = xDiff/steps;
+	float yStepSize = yDiff/steps;
+	float zStepSize = zDiff/steps;
+	for (float i=0.0; i<steps; i++) {
+		float x = from.x + (xStepSize*i);
+		float y = from.y + (yStepSize*i);
+		float z = from.depth + (zStepSize*i);
+		line.push_back(CanvasPoint(x, y, z));
+	}
+	return line;
 }
 void lineDrawing(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
 	float xDiff = to.x - from.x;
@@ -145,6 +180,18 @@ CanvasTriangle sortTriangle(CanvasTriangle triangle) {
 	}
 	return triangle;
 }
+CanvasTriangle sortTriangleTex(CanvasTriangle triangle) {
+	if(triangle.v0().y > triangle.v1().y) {
+		swap(triangle.v1(), triangle.v0());
+	}
+	if(triangle.v0().y > triangle.v2().y) {
+		swap(triangle.v2(), triangle.v0());
+	}
+	if(triangle.v1().y > triangle.v2().y) {
+		swap(triangle.v2(), triangle.v1());
+	}
+	return triangle;
+}
 
 CanvasPoint getMiddlePoint(CanvasTriangle triangle) {
 	float proportion = (triangle.v1().y - triangle.v0().y)/(triangle.v2().y - triangle.v0().y);
@@ -153,6 +200,19 @@ CanvasPoint getMiddlePoint(CanvasTriangle triangle) {
 	float yCoord = triangle.v1().y;
 	float zCoord = triangle.v0().depth + (proportionDepth * (triangle.v1().y - triangle.v0().y));
 	return CanvasPoint(xCoord, yCoord, zCoord);
+}
+CanvasPoint getPoint(CanvasPoint top, CanvasPoint middle, CanvasPoint bottom) {
+	float proportion = (bottom.x - top.x) / (bottom.y - top.y);
+	float yCoord =  middle.y;
+	float xCoord = top.x + (middle.y - top.y) * proportion;
+	
+	float depth = FLT_MAX;
+	float distanceTopBottom = glm::length(glm::vec2(bottom.x - top.x,bottom.y - top.y));
+	float distanceTopPoint = glm::length(glm::vec2((xCoord - top.x),(yCoord - top.y)));
+	float depthTopBottom = bottom.depth - top.depth;
+	float depthTopPoint = (depthTopBottom*distanceTopPoint)/distanceTopBottom ;
+	depth = depthTopPoint + top.depth;
+	return CanvasPoint(xCoord, yCoord, depth);
 }
 vector<CanvasPoint> interpolateLine(CanvasPoint start, CanvasPoint end, int side){
 	vector<CanvasPoint> v;
@@ -180,6 +240,91 @@ void interpolateSidesAndFill(CanvasTriangle tri, DrawingWindow &window, Colour c
 	}
 	strokedDepth(window, tri, col);
 }
+void fillTopTriangleTex(DrawingWindow &window, CanvasTriangle triangle, TextureMap texture) {
+	vector<CanvasPoint> side1 = interpolationWithSteps(triangle.v0(), triangle.v1(), (int)(triangle.v1().y- triangle.v0().y)+1);
+	vector<CanvasPoint> side2 = interpolationWithSteps(triangle.v0(), triangle.v2(), (int)(triangle.v2().y - triangle.v0().y)+1);
+	CanvasPoint v0Tex(triangle.v0().texturePoint.x, triangle.v0().texturePoint.y);
+	CanvasPoint v1Tex(triangle.v1().texturePoint.x, triangle.v1().texturePoint.y);
+	CanvasPoint v2Tex(triangle.v2().texturePoint.x, triangle.v2().texturePoint.y);
+	vector<CanvasPoint> side1Tex = interpolationWithSteps(v0Tex, v1Tex, (int)(triangle.v1().y- triangle.v0().y)+1);
+	vector<CanvasPoint> side2Tex = interpolationWithSteps(v0Tex, v2Tex, (int)(triangle.v2().y - triangle.v0().y)+1);
+
+	for(int i = 0; i < side1Tex.size(); i++) {
+		float startXTex = side1Tex[i].x; float startYTex = side1Tex[i].y; 
+		float endXTex = side2Tex[i].x; float endYTex = side2Tex[i].y; 
+		float startX = side1[i].x; float startY = side1[i].y; float startZ = side1[i].depth;
+		float endX = side2[i].x; float endY = side2[i].y; float endZ = side2[i].depth;
+		
+		float xTDiff = endXTex - startXTex; float yTDiff = endYTex - startYTex;
+		float xDiff = endX - startX; float yDiff = endY - startY; float zDiff = endZ - startZ;
+
+		float numberOfSteps = max(abs(xDiff), abs(yDiff));
+		
+		float xStepTex = xTDiff / numberOfSteps; float yStepTex = yTDiff / numberOfSteps;
+		float xStep = xDiff / numberOfSteps; float yStep = yDiff / numberOfSteps; float zStep = zDiff / numberOfSteps;
+
+		for(float i = 0; i < numberOfSteps; i++) {
+			float xPixelT = startXTex + xStepTex * i; float yPixelT = startYTex + yStepTex * i;
+			float xPixel = startX + xStep * i; float yPixel = startY + yStep * i; float zPixel = startZ + zStep * i; 
+			uint32_t colour = texture.pixels[(floor(xPixelT) + (texture.width) * floor(yPixelT))];
+			int xCoord = floor(xPixel);
+			int yCoord = floor(yPixel);
+			if(zPixel == 0 || zPixel > (depthBuffer[xCoord][yCoord])) {
+				depthBuffer[xCoord][yCoord] = 1/zPixel;
+				window.setPixelColour(xCoord, yCoord, colour);
+			}
+		}
+	}
+}
+
+void fillBottomTriangleTex(DrawingWindow &window, CanvasTriangle triangle, TextureMap texture) {
+	vector<CanvasPoint> side1 = interpolationWithSteps(triangle.v2(), triangle.v1(), (int)(triangle.v2().y - triangle.v1().y)+1);
+	vector<CanvasPoint> side2 = interpolationWithSteps(triangle.v2(), triangle.v0(), (int)(triangle.v2().y - triangle.v0().y)+1);
+	CanvasPoint v0Tex(triangle.v0().texturePoint.x, triangle.v0().texturePoint.y);
+	CanvasPoint v1Tex(triangle.v1().texturePoint.x, triangle.v1().texturePoint.y);
+	CanvasPoint v2Tex(triangle.v2().texturePoint.x, triangle.v2().texturePoint.y);
+	vector<CanvasPoint> side1Tex = interpolationWithSteps(v2Tex, v1Tex, (int)(triangle.v2().y- triangle.v1().y)+1);
+	vector<CanvasPoint> side2Tex = interpolationWithSteps(v2Tex, v0Tex, (int)(triangle.v2().y - triangle.v0().y)+1);
+
+	for(int i = 0; i < side1Tex.size(); i++) {
+		float startXTex = side1Tex[i].x; float startYTex = side1Tex[i].y; 
+		float endXTex = side2Tex[i].x; float endYTex = side2Tex[i].y; 
+		float startX = side1[i].x; float startY = side1[i].y; float startZ = side1[i].depth;
+		float endX = side2[i].x; float endY = side2[i].y; float endZ = side2[i].depth;
+		
+		float xTDiff = endXTex - startXTex; float yTDiff = endYTex - startYTex;
+		float xDiff = endX - startX; float yDiff = endY - startY; float zDiff = endZ - startZ;
+
+		float numberOfSteps = max(abs(xDiff), abs(yDiff));
+		
+		float xStepTex = xTDiff / numberOfSteps; float yStepTex = yTDiff / numberOfSteps;
+		float xStep = xDiff / numberOfSteps; float yStep = yDiff / numberOfSteps; float zStep = zDiff / numberOfSteps;
+
+		for(float i = 0; i < numberOfSteps; i++) {
+			float xPixelT = startXTex + xStepTex * i; float yPixelT = startYTex + yStepTex * i;
+			float xPixel = startX + xStep * i; float yPixel = startY + yStep * i; float zPixel = startZ + zStep * i; 
+			uint32_t colour = texture.pixels[(floor(xPixelT) + (texture.width) * floor(yPixelT))];
+			int xCoord = floor(xPixel);
+			int yCoord = floor(yPixel);
+			if(zPixel == 0 || zPixel > (depthBuffer[xCoord][yCoord])) {
+				depthBuffer[xCoord][yCoord] = 1/zPixel;
+				window.setPixelColour(xCoord, yCoord, colour);
+			}	
+		}
+
+	}	
+}
+void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle unsortedTriangle, TextureMap texture) {
+	CanvasTriangle triangle = sortTriangleTex(unsortedTriangle);
+	cout << triangle << endl;
+	CanvasPoint point = getPoint(triangle.v0(), triangle.v1(), triangle.v2());
+	// cout << point << endl;
+	CanvasTriangle topTri = CanvasTriangle(triangle.v0(), triangle.v1(), point);
+	CanvasTriangle bottomTri = CanvasTriangle(point, triangle.v1(),triangle.v2());
+	fillTopTriangleTex(window, topTri, texture);
+	fillBottomTriangleTex(window, bottomTri, texture);	
+	
+}
 void rasterise(DrawingWindow &window){
     window.clearPixels();
     clearDepthBuffer();
@@ -188,10 +333,14 @@ void rasterise(DrawingWindow &window){
         vector<CanvasPoint> canvasPoints;
         for(int i=0; i<faces.size(); i++) {
             for(int j=0; j<3; j++){
-                CanvasPoint temp = getCanvasIntersectionPoint(faces[i].vertices[j], window);
+				CanvasPoint temp;
+				if (faces[i].colour.name == "Cobbles") temp = getCanvasIntersectionPointTex(faces[i].vertices[j], window);
+                else temp = getCanvasIntersectionPoint(faces[i].vertices[j], window);
                 canvasPoints.push_back(temp);
             }
-            triangleColours.push_back(faces[i].colour);
+			Colour col = faces[i].colour;
+			col.name = faces[i].colour.name;
+            triangleColours.push_back(col);
         }
         for(int i=0; i<canvasPoints.size(); i=i+3){
             CanvasTriangle temp = CanvasTriangle(canvasPoints[i], canvasPoints[i+1], canvasPoints[i+2]);
@@ -199,14 +348,22 @@ void rasterise(DrawingWindow &window){
         }
     }
     for (int i=0; i<canvasTriangles.size(); i++) {
+		ModelTriangle triangle = faces[i];
         Colour col = triangleColours[i];
-        CanvasTriangle tri = canvasTriangles[i];
-        tri = sortTriangle(tri);
-        CanvasPoint newp = getMiddlePoint(tri);
-        CanvasTriangle topTri = CanvasTriangle(tri.v0(), tri.v1(), newp);
-        CanvasTriangle bottomTri = CanvasTriangle(tri.v2(), tri.v1(), newp);
-        interpolateSidesAndFill(topTri, window, col, 0);
-        interpolateSidesAndFill(bottomTri, window, col, 1);
+        CanvasTriangle canvasTriangle = canvasTriangles[i];
+		if (triangleColours[i].name == "Cobbles") {	
+			canvasTriangle.v0().texturePoint = TexturePoint(triangle.texturePoints[0].x * texture.width, texture.height - triangle.texturePoints[0].y * texture.height);
+			canvasTriangle.v1().texturePoint = TexturePoint(triangle.texturePoints[1].x * texture.width, texture.height - triangle.texturePoints[1].y * texture.height);
+			canvasTriangle.v2().texturePoint = TexturePoint(triangle.texturePoints[2].x * texture.width, texture.height - triangle.texturePoints[2].y * texture.height);
+			drawTexturedTriangle(window, canvasTriangle, texture);
+		} else {
+			CanvasTriangle tri = sortTriangle(canvasTriangle);
+        	CanvasPoint newp = getMiddlePoint(tri);
+			CanvasTriangle topTri = CanvasTriangle(tri.v0(), tri.v1(), newp);
+			CanvasTriangle bottomTri = CanvasTriangle(tri.v2(), tri.v1(), newp);
+			interpolateSidesAndFill(topTri, window, col, 0);
+			interpolateSidesAndFill(bottomTri, window, col, 1);
+		}
     }
 
 }
@@ -502,6 +659,7 @@ void parseOBJ(string filePath, float scaler) {
 	ifstream fileIn;
 	string line;
 	string currentColour;
+	vector<TexturePoint> texturePoints;
 	bool reflective = false;
 	fileIn.open(filePath);
 	if (fileIn.is_open()) {
@@ -511,6 +669,9 @@ void parseOBJ(string filePath, float scaler) {
 				if (line[1] == 'n') {
 					glm::vec3 normal = glm::vec3(stof(lineParts[1]),stof(lineParts[2]),stof(lineParts[3]));
 					normals.push_back(normal);
+				} else if (line[1] == 't') {
+					TexturePoint tp = TexturePoint(stof(lineParts[1]),stof(lineParts[2]));
+					texturePoints.push_back(tp);
 				} else {
 					glm::vec3 vertex = glm::vec3(stof(lineParts[1])*scaler,stof(lineParts[2])*scaler,stof(lineParts[3])*scaler);
 					vertices.push_back(vertex);
@@ -521,6 +682,7 @@ void parseOBJ(string filePath, float scaler) {
 				vector<string> splitLineParts2 = split(lineParts[2], '/');
 				vector<string> splitLineParts3 = split(lineParts[3], '/');
 				Colour colour = colourPalette[currentColour];
+				colour.name = currentColour;
                 glm::vec3 v0 = vertices[stoi(splitLineParts1[0])-1];
                 glm::vec3 v1 = vertices[stoi(splitLineParts2[0])-1];
                 glm::vec3 v2 = vertices[stoi(splitLineParts3[0])-1];
@@ -530,6 +692,11 @@ void parseOBJ(string filePath, float scaler) {
 					face.vertexNormals[0] = normals[stoi(splitLineParts1[2])-1];
 					face.vertexNormals[1] = normals[stoi(splitLineParts2[2])-1];
 					face.vertexNormals[2] = normals[stoi(splitLineParts3[2])-1];
+				}
+				if (colour.name == "Cobbles") {
+					face.texturePoints[0] = texturePoints[stoi(splitLineParts1[1])-1];
+					face.texturePoints[1] = texturePoints[stoi(splitLineParts2[1])-1];
+					face.texturePoints[2] = texturePoints[stoi(splitLineParts3[1])-1];
 				}
 				face.reflective = reflective;
 				faces.push_back(face);
@@ -564,6 +731,9 @@ void parseMTL(string filePath) {
 				int blue = round(255 * stof(lineParts[3]));
 				currentColour = Colour(red,green,blue);
 				colourPalette[currentColourName] = currentColour;
+			} else if(line[0] == 'm') {
+				vector<string> lineParts = split(line, ' ');
+				texture = TextureMap("build/models/" + lineParts[1]);
 			}
 		}
 		fileIn.close();
@@ -575,6 +745,7 @@ void draw(DrawingWindow &window) {
     else if (renderMode == "wireFrame") wireFrame(window);
     else if (renderMode == "rasterise") rasterise(window);
     else if (renderMode == "raytrace") raytrace(window);
+	else if (renderMode == "rasteriseTexture") rasterise(window);
 	else if (renderMode == "gouraud") gouraud(window);
 	else if (renderMode == "phong") phong(window);
 	else if (renderMode == "reflection") reflection(window);
@@ -627,6 +798,16 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 				parseOBJ("build/models/cornell-box.obj", 0.17);
 			}
             renderMode = "rasterise";
+            cout << "Rasterise" << endl; }
+		else if (event.key.keysym.sym == SDLK_c) {
+			if (model != "textured-cornell-box") {
+				model = "textured-cornell-box";
+				clearAll();
+				lightPosition = glm::vec3(0.0, 0.4, 0.0); camera.position = glm::vec3(0.0,0.0,1.0); camera.focalLength = 1.0;
+				parseMTL("build/models/textured-cornell-box.mtl");
+				parseOBJ("build/models/textured-cornell-box.obj", 0.17);
+			}
+            renderMode = "rasteriseTexture";
             cout << "Rasterise" << endl; }
         else if (event.key.keysym.sym == SDLK_t) {
 			if (model != "cornell-box") {
