@@ -76,23 +76,9 @@ void lookAt() {
 	glm::mat3 newOrientation(right, up, forward);
 	camera.orientation = newOrientation;
 }
-void addLights() {
-	lightCluster.clear();
-	for (float i=0.0; i<0.08; i=i+0.01) {
-		// create a cluster of light points around the original light
-		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z));
-		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z));
-		lightCluster.push_back(glm::vec3(lightPosition.x, lightPosition.y, lightPosition.z + i));
-		lightCluster.push_back(glm::vec3(lightPosition.x, lightPosition.y, lightPosition.z - i));
-		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z + i));
-		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z - i));
-		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z + i));
-		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z - i));
-	}
-}
 glm::vec3 getVertexRelativeToCamera(glm::vec3 vertexPosition) {
 	glm::vec3 cameraToVertex = vertexPosition - camera.position;
-    glm::vec3 adjustedVector = cameraToVertex  * camera.orientation;
+    glm::vec3 adjustedVector = cameraToVertex * camera.orientation;
 	return adjustedVector;
 }
 CanvasPoint getCanvasIntersectionPoint(glm::vec3 vertexPosition, DrawingWindow &window) {
@@ -223,16 +209,16 @@ void wireFrame(DrawingWindow &window) {
 		points.clear();
 		strokedNoDepth(window, face, Colour(255,255,255));
 	}
-	imageNumber += 1;
-	string start;
-	if (imageNumber < 10) {
-		start = "images/0000" + to_string(imageNumber) + ".ppm";
-	} else if (imageNumber < 100) {
-		start = "images/000" + to_string(imageNumber) + ".ppm";
-	} else if (imageNumber < 1000) {
-		start = "images/00" + to_string(imageNumber) + ".ppm";
-	}
-	window.savePPM(start);
+	// imageNumber += 1;
+	// string start;
+	// if (imageNumber < 10) {
+	// 	start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 100) {
+	// 	start = "images/000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 1000) {
+	// 	start = "images/00" + to_string(imageNumber) + ".ppm";
+	// }
+	// window.savePPM(start);
 }
 
 CanvasTriangle sortTriangle(CanvasTriangle triangle) {
@@ -299,7 +285,7 @@ vector<CanvasPoint> interpolateLine(CanvasPoint start, CanvasPoint end, int side
 	return v;
 }
 
-void interpolateSidesAndFill(CanvasTriangle tri, DrawingWindow &window, Colour col, int side){
+void filled(CanvasTriangle tri, DrawingWindow &window, Colour col, int side){
 	vector<CanvasPoint> side1 = interpolateLine(tri.v0(), tri.v1(), side);
 	vector<CanvasPoint> side2 = interpolateLine(tri.v0(), tri.v2(), side);
 	for(int i = 0; i< side1.size(); i++){
@@ -438,20 +424,20 @@ void rasterise(DrawingWindow &window){
         	CanvasPoint newp = getMiddlePoint(tri);
 			CanvasTriangle topTri = CanvasTriangle(tri.v0(), tri.v1(), newp);
 			CanvasTriangle bottomTri = CanvasTriangle(tri.v2(), tri.v1(), newp);
-			interpolateSidesAndFill(topTri, window, col, 0);
-			interpolateSidesAndFill(bottomTri, window, col, 1);
+			filled(topTri, window, col, 0);
+			filled(bottomTri, window, col, 1);
 		}
     }
-	imageNumber += 1;
-	string start;
-	if (imageNumber < 10) {
-		start = "images/0000" + to_string(imageNumber) + ".ppm";
-	} else if (imageNumber < 100) {
-		start = "images/000" + to_string(imageNumber) + ".ppm";
-	} else if (imageNumber < 1000) {
-		start = "images/00" + to_string(imageNumber) + ".ppm";
-	}
-	window.savePPM(start);
+	// imageNumber += 1;
+	// string start;
+	// if (imageNumber < 10) {
+	// 	start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 100) {
+	// 	start = "images/000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 1000) {
+	// 	start = "images/00" + to_string(imageNumber) + ".ppm";
+	// }
+	// window.savePPM(start);
 }
 
 RayTriangleIntersection getClosestIntersectionRayTrace(glm::vec3 rayDirection, glm::vec3 rayStart, int index) {
@@ -564,6 +550,20 @@ void raytrace(DrawingWindow& window) {
 		}
 	}
 }
+void addLights() {
+	lightCluster.clear();
+	for (float i=0.0; i<0.08; i=i+0.01) {
+		// create a cluster of light points around the original light
+		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z));
+		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z));
+		lightCluster.push_back(glm::vec3(lightPosition.x, lightPosition.y, lightPosition.z + i));
+		lightCluster.push_back(glm::vec3(lightPosition.x, lightPosition.y, lightPosition.z - i));
+		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z + i));
+		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z - i));
+		lightCluster.push_back(glm::vec3(lightPosition.x - i, lightPosition.y, lightPosition.z + i));
+		lightCluster.push_back(glm::vec3(lightPosition.x + i, lightPosition.y, lightPosition.z - i));
+	}
+}
 void softShadow(DrawingWindow& window) {
 	window.clearPixels();
 	addLights();
@@ -645,16 +645,15 @@ void gouraud(DrawingWindow &window) {
 					glm::vec3 lightRay =  glm::normalize(lightPosition - intersection.intersectionPoint);
         			float aoi = glm::dot(normal, lightRay);
         			if (aoi<0.2) aoi=0.2;
-					// NEED SPECULAR
 					int n = 256;
-					glm::vec3 vectorOfLightToPoint = glm::normalize(intersection.intersectionPoint - lightPosition);
+					glm::vec3 light2Point = glm::normalize(intersection.intersectionPoint - lightPosition);
 					normal = glm::normalize(normal);
-					glm::vec3 vectorOfReflection = glm::normalize((vectorOfLightToPoint - 2.0f*normal*(glm::dot(vectorOfLightToPoint, normal))));
-					glm::vec3 vectorToCamera = glm::normalize((camera.position - intersection.intersectionPoint));
-					float specBrightness = glm::dot(vectorToCamera, vectorOfReflection);
-					if (specBrightness < 0) specBrightness = 0;
-					specBrightness = pow(specBrightness, n);
-					float brightness = (aoi + specBrightness)/2;
+					glm::vec3 reflection = glm::normalize((light2Point - 2.0f*normal*(glm::dot(light2Point, normal))));
+					glm::vec3 toCamera = glm::normalize((camera.position - intersection.intersectionPoint));
+					float spec = glm::dot(toCamera, reflection);
+					if (spec < 0) spec = 0;
+					spec = pow(spec, n);
+					float brightness = (aoi + spec)/2;
 					face.vertexBrightness[i] = brightness;
 				}
 				float brightness = (face.vertexBrightness[0]*intersection.baryCoords[0]) + (face.vertexBrightness[1]*intersection.baryCoords[1]) + (face.vertexBrightness[2]*intersection.baryCoords[2]);
@@ -895,7 +894,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 				model = "cornell-box";
 				clearAll();
 				window.clearPixels();
-				lightPosition = glm::vec3(0.0, 0.38, 0.0); camera.position = glm::vec3(0.0,0.0,1.0); camera.focalLength = 1.0;
+				lightPosition = glm::vec3(0.0, 0.4, 0.0); camera.position = glm::vec3(0.0,0.0,1.0); camera.focalLength = 1.0;
 				parseMTL("build/models/cornell-box.mtl");
 				parseOBJ("build/models/cornell-box.obj", 0.17);
 			}
