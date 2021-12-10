@@ -209,16 +209,6 @@ void wireFrame(DrawingWindow &window) {
 		points.clear();
 		strokedNoDepth(window, face, Colour(255,255,255));
 	}
-	// imageNumber += 1;
-	// string start;
-	// if (imageNumber < 10) {
-	// 	start = "images/0000" + to_string(imageNumber) + ".ppm";
-	// } else if (imageNumber < 100) {
-	// 	start = "images/000" + to_string(imageNumber) + ".ppm";
-	// } else if (imageNumber < 1000) {
-	// 	start = "images/00" + to_string(imageNumber) + ".ppm";
-	// }
-	// window.savePPM(start);
 }
 
 CanvasTriangle sortTriangle(CanvasTriangle triangle) {
@@ -428,20 +418,6 @@ void rasterise(DrawingWindow &window){
 			filled(bottomTri, window, col, 1);
 		}
     }
-	// int i = 0;
-	// while (i < 75) {
-	// 	imageNumber += 1;
-	// 	string start;
-	// 	if (imageNumber < 10) {
-	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 100) {
-	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 1000) {
-	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
-	// 	}
-	// 	window.savePPM(start);
-	// 	i++;
-	// }
 }
 
 RayTriangleIntersection getClosestIntersectionRayTrace(glm::vec3 rayDirection, glm::vec3 rayStart, int index) {
@@ -606,20 +582,6 @@ void softShadow(DrawingWindow& window) {
 			}
 		}
 	}
-	// while (imageNumber < 1450) {
-	// 	imageNumber += 1;
-	// 	string start;
-	// 	if (imageNumber < 10) {
-	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 100) {
-	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 1000) {
-	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 10000) {
-	// 		start = "images/0" + to_string(imageNumber) + ".ppm";
-	// 	}
-	// 	window.savePPM(start);
-	// }
 }
 
 RayTriangleIntersection getClosestIntersectionShading(glm::vec3 rayDirection, glm::vec3 rayStart) {
@@ -683,20 +645,6 @@ void gouraud(DrawingWindow &window) {
 			}
 		}
 	}
-	// while (imageNumber < 1550) {
-	// 	imageNumber += 1;
-	// 	string start;
-	// 	if (imageNumber < 10) {
-	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 100) {
-	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 1000) {
-	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
-	// 	} else if (imageNumber < 10000) {
-	// 		start = "images/0" + to_string(imageNumber) + ".ppm";
-	// 	}
-	// 	window.savePPM(start);
-	// }
 }
 
 
@@ -1015,3 +963,14 @@ int main(int argc, char *argv[]) {
 		window.renderFrame();
 	}
 }
+
+// imageNumber += 1;
+	// string start;
+	// if (imageNumber < 10) {
+	// 	start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 100) {
+	// 	start = "images/000" + to_string(imageNumber) + ".ppm";
+	// } else if (imageNumber < 1000) {
+	// 	start = "images/00" + to_string(imageNumber) + ".ppm";
+	// }
+	// window.savePPM(start);
