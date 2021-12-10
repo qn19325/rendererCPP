@@ -17,7 +17,7 @@
 
 using namespace std;
 
-int imageNumber;
+int imageNumber = 1550;
 
 string model;
 vector<glm::vec3> vertices;
@@ -69,7 +69,7 @@ void clearDepthBuffer() {
 	}
 }
 void lookAt() {
-	glm::vec3 forward = camera.position;
+	glm::vec3 forward = glm::normalize(camera.position);
 	glm::vec3 vertical(0, 1, 0);
 	glm::vec3 right = glm::normalize(glm::cross(vertical, forward));
 	glm::vec3 up = glm::normalize(glm::cross(forward, right));
@@ -428,16 +428,20 @@ void rasterise(DrawingWindow &window){
 			filled(bottomTri, window, col, 1);
 		}
     }
-	// imageNumber += 1;
-	// string start;
-	// if (imageNumber < 10) {
-	// 	start = "images/0000" + to_string(imageNumber) + ".ppm";
-	// } else if (imageNumber < 100) {
-	// 	start = "images/000" + to_string(imageNumber) + ".ppm";
-	// } else if (imageNumber < 1000) {
-	// 	start = "images/00" + to_string(imageNumber) + ".ppm";
+	// int i = 0;
+	// while (i < 75) {
+	// 	imageNumber += 1;
+	// 	string start;
+	// 	if (imageNumber < 10) {
+	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 100) {
+	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 1000) {
+	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
+	// 	}
+	// 	window.savePPM(start);
+	// 	i++;
 	// }
-	// window.savePPM(start);
 }
 
 RayTriangleIntersection getClosestIntersectionRayTrace(glm::vec3 rayDirection, glm::vec3 rayStart, int index) {
@@ -497,18 +501,6 @@ float specular(RayTriangleIntersection intersection, int n) {
 
 void raytrace(DrawingWindow& window) {
 	window.clearPixels();
-	if (orbitMode == true) {
-		glm::mat3 rotation = yRotationMatrix(1.0);
-		camera.position = rotation * camera.position; 
-		lookAt();
-	} else {
-		camera.position = glm::vec3(0.0,0.0,1.0); 
-		camera.focalLength = 1.0;
-		glm::vec3 right = glm::vec3(1,0,0);
-		glm::vec3 up = glm::vec3(0,1,0);
-		glm::vec3 forward = glm::vec3(0,0,1);
-		camera.orientation = glm::mat3(right, up, forward);
-	}
 	for (int y = 0; y < HEIGHT; y++) {
 		for (int x = 0; x < WIDTH; x++) {
 			float xRayDirection = x - WIDTH / 2.0;
@@ -548,6 +540,20 @@ void raytrace(DrawingWindow& window) {
 				}
 			}
 		}
+	}
+	while (imageNumber < 1350) {
+		imageNumber += 1;
+		string start;
+		if (imageNumber < 10) {
+			start = "images/0000" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 100) {
+			start = "images/000" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 1000) {
+			start = "images/00" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 10000) {
+			start = "images/0" + to_string(imageNumber) + ".ppm";
+		}
+		window.savePPM(start);
 	}
 }
 void addLights() {
@@ -600,6 +606,20 @@ void softShadow(DrawingWindow& window) {
 			}
 		}
 	}
+	// while (imageNumber < 1450) {
+	// 	imageNumber += 1;
+	// 	string start;
+	// 	if (imageNumber < 10) {
+	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 100) {
+	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 1000) {
+	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 10000) {
+	// 		start = "images/0" + to_string(imageNumber) + ".ppm";
+	// 	}
+	// 	window.savePPM(start);
+	// }
 }
 
 RayTriangleIntersection getClosestIntersectionShading(glm::vec3 rayDirection, glm::vec3 rayStart) {
@@ -663,6 +683,20 @@ void gouraud(DrawingWindow &window) {
 			}
 		}
 	}
+	// while (imageNumber < 1550) {
+	// 	imageNumber += 1;
+	// 	string start;
+	// 	if (imageNumber < 10) {
+	// 		start = "images/0000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 100) {
+	// 		start = "images/000" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 1000) {
+	// 		start = "images/00" + to_string(imageNumber) + ".ppm";
+	// 	} else if (imageNumber < 10000) {
+	// 		start = "images/0" + to_string(imageNumber) + ".ppm";
+	// 	}
+	// 	window.savePPM(start);
+	// }
 }
 
 
@@ -703,6 +737,20 @@ void phong(DrawingWindow &window) {
 			}
 
 		}
+	}
+	while (imageNumber < 1650) {
+		imageNumber += 1;
+		string start;
+		if (imageNumber < 10) {
+			start = "images/0000" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 100) {
+			start = "images/000" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 1000) {
+			start = "images/00" + to_string(imageNumber) + ".ppm";
+		} else if (imageNumber < 10000) {
+			start = "images/0" + to_string(imageNumber) + ".ppm";
+		}
+		window.savePPM(start);
 	}
 }
 
@@ -905,7 +953,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 			if (model != "sphere") {
 				model = "sphere";
 				clearAll();
-				lightPosition = glm::vec3(0.0, 0.5, 0.9); camera.position = glm::vec3(0.0,-1.0,6.0); camera.focalLength = 2.0;
+				lightPosition = glm::vec3(0.0, 0.9, 0.9); camera.position = glm::vec3(0.0,0.0,4.0); camera.focalLength = 2.0;
 				parseOBJ("build/models/sphere.obj", 0.07);
 			}
 			renderMode = "gouraud";
