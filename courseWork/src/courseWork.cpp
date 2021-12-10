@@ -17,7 +17,7 @@
 
 using namespace std;
 
-int imageNumber = 1550;
+int imageNumber;
 
 string model;
 vector<glm::vec3> vertices;
@@ -516,20 +516,6 @@ void raytrace(DrawingWindow& window) {
 				}
 			}
 		}
-	}
-	while (imageNumber < 1350) {
-		imageNumber += 1;
-		string start;
-		if (imageNumber < 10) {
-			start = "images/0000" + to_string(imageNumber) + ".ppm";
-		} else if (imageNumber < 100) {
-			start = "images/000" + to_string(imageNumber) + ".ppm";
-		} else if (imageNumber < 1000) {
-			start = "images/00" + to_string(imageNumber) + ".ppm";
-		} else if (imageNumber < 10000) {
-			start = "images/0" + to_string(imageNumber) + ".ppm";
-		}
-		window.savePPM(start);
 	}
 }
 void addLights() {
