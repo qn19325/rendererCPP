@@ -1,4 +1,4 @@
-## Features
+## C++ Graphics Renderer with the following features implemented
 - OBJ geometry file loading
 - Wireframe rendering
 - Keyboard control of camera position
